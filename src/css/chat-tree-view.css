@@ -1,0 +1,402 @@
+/* ==========================================================================
+   CONFIG & VARIABLES
+   ========================================================================== */
+:root {
+    /* Colors */
+    --tree-bg-overlay: rgba(15, 15, 20, 0.75);
+    --tree-bg-modal: rgba(30, 30, 35, 0.92);
+    --tree-bg-header: rgba(25, 25, 30, 0.95);
+    --tree-bg-node: #2a2a30;
+    --tree-border: rgba(255, 255, 255, 0.12);
+    --tree-accent: var(--accent-color, #4a9eff);
+    --tree-text: var(--text-color, #ffffff);
+    --tree-success: #00ff00;
+    --tree-error: #ff6b6b;
+
+    /* Spacing & Sizes */
+    --tree-gap: 16px;
+    --tree-radius: 8px;
+    --tree-modal-w: 80vw;
+    --tree-modal-h: 80vh;
+    --tree-node-w: 120px;
+    --tree-toggle-sz: 20px;
+    
+    /* Z-Index Layers */
+    --z-line: 1;
+    --z-node: 2;
+    --z-toggle: 3;
+    --z-overlay: 9999;
+    --z-menu: 10002;
+}
+
+/* ==========================================================================
+   BASE UTILITIES & LAYOUT
+   ========================================================================== */
+.flex-center { display: flex; align-items: center; justify-content: center; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip: rect(0,0,0,0); border: 0; }
+
+#chat_tree_overlay {
+    position: fixed;
+    inset: 0;
+    background: var(--tree-bg-overlay);
+    z-index: var(--z-overlay);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    backdrop-filter: blur(2px); /* nice visual touch */
+}
+
+/* ==========================================================================
+   MODAL CONTAINER
+   ========================================================================== */
+#chat_tree_modal {
+    width: var(--tree-modal-w);
+    height: var(--tree-modal-h);
+    background: var(--tree-bg-modal);
+    border: 1px solid var(--tree-border);
+    border-radius: var(--tree-radius);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+}
+
+/* Header */
+#chat_tree_header {
+    padding: 12px var(--tree-gap);
+    background: var(--tree-bg-header);
+    border-bottom: 1px solid var(--tree-border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--tree-gap);
+}
+
+#chat_tree_header h3 {
+    margin: 0;
+    font-size: 16px;
+    color: var(--tree-text);
+    white-space: nowrap;
+}
+
+/* Header Dropdown */
+.chat-tree-dropdown {
+    background: var(--tree-bg-node);
+    color: var(--tree-text);
+    border: 1px solid var(--tree-border);
+    border-radius: 4px;
+    padding: 6px 30px 6px 10px;
+    cursor: pointer;
+    font-size: 13px;
+    appearance: none; /* remove default arrow */
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12' fill='none'%3E%3Cpath d='M2.5 4.5L6 8L9.5 4.5' stroke='%23ffffff' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    min-width: 150px;
+}
+
+/* ==========================================================================
+   CANVAS & TREE CONTENT
+   ========================================================================== */
+#chat_tree_content {
+    flex: 1;
+    overflow: auto;
+    position: relative;
+    cursor: grab;
+    background-image: radial-gradient(rgba(255, 255, 255, 0.08) 1px, transparent 0);
+    background-size: 20px 20px;
+    will-change: transform; /* Performance hint */
+}
+
+#chat_tree_content.panning { cursor: grabbing; user-select: none; }
+
+.family-tree-wrapper {
+    min-width: 100%;
+    min-height: 100%;
+    display: inline-block;
+    padding: 50px;
+    position: relative;
+}
+
+.family-tree-inner { display: flex; justify-content: center; }
+
+#chat_tree_lines {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: var(--z-line);
+}
+
+/* ==========================================================================
+   TREE STRUCTURE (Branches & Nodes)
+   ========================================================================== */
+.tree-branch {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin: 0 10px;
+}
+
+.tree-children {
+    display: flex;
+    margin-top: 20px;
+    justify-content: center;
+}
+
+.tree-entry { position: relative; }
+
+/* The Node Card */
+.tree-node {
+    background: var(--tree-bg-node);
+    border: 2px solid var(--tree-border);
+    padding: 8px 12px;
+    border-radius: var(--tree-radius);
+    min-width: var(--tree-node-w);
+    text-align: center;
+    cursor: pointer;
+    position: relative;
+    z-index: var(--z-node);
+    transition: transform 0.2s, border-color 0.2s;
+    user-select: none;
+}
+
+.tree-node:hover {
+    border-color: var(--tree-accent);
+    transform: translateY(-2px);
+}
+
+.tree-node.active-node {
+    border-color: var(--tree-success);
+    background: #1a1a1e;
+    box-shadow: 0 0 10px rgba(0, 255, 0, 0.2);
+}
+
+.node-content {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    font-size: 13px;
+    font-weight: 500;
+}
+
+/* Expand Toggle Button */
+.expand-toggle {
+    position: absolute;
+    bottom: -10px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: var(--tree-toggle-sz);
+    height: var(--tree-toggle-sz);
+    background: var(--tree-accent);
+    color: white;
+    border-radius: 50%;
+    font-size: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: var(--z-toggle);
+    cursor: pointer;
+    transition: transform 0.2s;
+}
+
+.expand-toggle:hover { transform: translateX(-50%) scale(1.15); }
+
+/* ==========================================================================
+   CONTEXT MENU
+   ========================================================================== */
+.chat-branches-context-menu {
+    position: fixed;
+    background: var(--tree-bg-node);
+    border: 1px solid var(--tree-border);
+    border-radius: var(--tree-radius);
+    z-index: var(--z-menu);
+    min-width: 160px;
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(-5px);
+    transition: opacity 0.15s, transform 0.15s;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+}
+
+.chat-branches-context-menu.visible {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateY(0);
+}
+
+.context-menu-option {
+    padding: 10px 14px;
+    cursor: pointer;
+    font-size: 13px;
+    color: var(--tree-text);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.context-menu-option:hover {
+    background: var(--tree-accent);
+    color: white;
+}
+
+/* ==========================================================================
+   MOBILE & RESPONSIVE LOGIC
+   ========================================================================== */
+@media (max-width: 768px) {
+    /* Fix overlay alignment for mobile */
+    #chat_tree_overlay {
+        align-items: flex-start;
+    }
+    
+    /* Make Modal Fullscreen */
+    #chat_tree_modal {
+        width: 100vw;
+        height: 100vh;
+        max-width: none;
+        max-height: none;
+        border-radius: 0;
+        border: none;
+    }
+
+    /* Adjust Header */
+    #chat_tree_header {
+        padding: 8px 12px;
+    }
+    
+    .chat-tree-header-left {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    /* Shrink Nodes slightly but keep tap targets */
+    :root {
+        --tree-node-w: 90px;
+        --tree-toggle-sz: 24px; /* Larger toggle for touch fingers */
+    }
+
+    .tree-node {
+        padding: 8px;
+        font-size: 12px;
+    }
+    
+    .tree-children {
+        margin-top: 15px; /* Tighter vertical spacing */
+    }
+    
+    /* Make dropdowns full width for easier tapping */
+    .chat-tree-dropdown {
+        width: 100%;
+        max-width: 200px;
+    }
+}
+
+/* ==========================================================================
+   RENAME FUNCTIONALITY
+   ========================================================================== */
+
+/* Rename Icon - Hidden by default, shown on hover */
+.rename-icon {
+    opacity: 0;
+    margin-left: 6px;
+    cursor: pointer;
+    color: var(--tree-text);
+    transition: opacity 0.2s, color 0.2s;
+    font-size: 11px;
+    padding: 2px;
+}
+
+.tree-node:hover .rename-icon {
+    opacity: 0.7;
+}
+
+.rename-icon:hover {
+    opacity: 1 !important;
+    color: var(--tree-accent);
+}
+
+/* Rename Input Container */
+.rename-input-container {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+}
+
+/* Rename Input Field */
+.rename-input {
+    flex: 1;
+    background: var(--tree-bg-node);
+    color: var(--tree-text);
+    border: 1px solid var(--tree-accent);
+    border-radius: 4px;
+    padding: 4px 8px;
+    font-size: 13px;
+    font-weight: 500;
+    outline: none;
+    min-width: 80px;
+    max-width: 200px;
+}
+
+.rename-input:focus {
+    box-shadow: 0 0 0 2px rgba(74, 158, 255, 0.3);
+}
+
+.rename-input:disabled {
+    opacity: 0.6;
+    cursor: wait;
+}
+
+/* Rename Action Buttons */
+.rename-actions {
+    display: flex;
+    gap: 4px;
+}
+
+.rename-confirm,
+.rename-cancel {
+    background: var(--tree-bg-node);
+    border: 1px solid var(--tree-border);
+    color: var(--tree-text);
+    border-radius: 4px;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 12px;
+}
+
+.rename-confirm:hover {
+    background: var(--tree-success);
+    color: #000;
+    border-color: var(--tree-success);
+}
+
+.rename-cancel:hover {
+    background: var(--tree-error);
+    color: #fff;
+    border-color: var(--tree-error);
+}
+
+/* Adjust node content when renaming */
+.tree-node.renaming .node-content {
+    width: 100%;
+}
+
+/* Mobile adjustments */
+@media (max-width: 768px) {
+    .rename-input {
+        max-width: 120px;
+        font-size: 12px;
+    }
+    
+    .rename-confirm,
+    .rename-cancel {
+        width: 28px;
+        height: 28px;
+        font-size: 14px;
+    }
+}

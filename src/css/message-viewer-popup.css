@@ -1,0 +1,250 @@
+/* ==========================================================================
+   CONFIG & VARIABLES
+   ========================================================================== */
+:root {
+    /* Colors */
+    --msg-bg-overlay: rgba(15, 15, 20, 0.75);
+    --msg-bg-popup: rgba(30, 30, 35, 0.95);
+    --msg-bg-header: rgba(25, 25, 30, 0.98);
+    --msg-bg-item: rgba(255, 255, 255, 0.03);
+    --msg-border: rgba(255, 255, 255, 0.12);
+    
+    /* Text & Accents */
+    --msg-text: #e4e4e7;
+    --msg-muted: #71717a;
+    --msg-accent: #3b82f6;
+    
+    /* Role Colors */
+    --msg-user: #3b82f6;      /* Blue */
+    --msg-ai: #10b981;        /* Green */
+    --msg-sys: #f59e0b;       /* Orange */
+    --msg-err: #ef4444;       /* Red */
+
+    /* Dimensions */
+    --msg-width: 500px;
+    --msg-radius: 12px;
+    --msg-gap: 12px;
+    
+    /* Z-Index (Must be higher than Tree View's 9999) */
+    --z-msg-overlay: 10005; 
+}
+
+/* ==========================================================================
+   OVERLAY & CONTAINER
+   ========================================================================== */
+#message_viewer_overlay {
+    position: fixed;
+    inset: 0;
+    z-index: var(--z-msg-overlay);
+    background: var(--msg-bg-overlay);
+    display: flex;
+    align-items: center;     /* Vertically Center */
+    justify-content: center; /* Horizontally Center */
+    padding: 20px; /* Prevent touching edges on desktop */
+    backdrop-filter: blur(2px);
+    /* Remove opacity/pointer-events transitions - handle visibility with display instead */
+}
+
+.message-viewer-popup {
+    width: var(--msg-width);
+    max-width: 100%;
+    max-height: 80vh; /* Don't cover entire screen height */
+    background: var(--msg-bg-popup);
+    border: 1px solid var(--msg-border);
+    border-radius: var(--msg-radius);
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
+    overflow: hidden;
+}
+
+/* ==========================================================================
+   HEADER & CONTROLS
+   ========================================================================== */
+.message-viewer-header {
+    padding: 12px 16px;
+    background: var(--msg-bg-header);
+    border-bottom: 1px solid var(--msg-border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+.message-viewer-header h3 {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--msg-text);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.message-viewer-btn {
+    background: transparent;
+    border: 1px solid var(--msg-border);
+    color: var(--msg-text);
+    padding: 4px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 12px;
+    transition: all 0.2s;
+}
+
+.message-viewer-btn:hover {
+    border-color: var(--msg-accent);
+    background: var(--msg-accent);
+    color: white;
+}
+
+/* ==========================================================================
+   MESSAGE LIST CONTENT
+   ========================================================================== */
+.message-viewer-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+    scroll-behavior: smooth;
+    display: flex;
+    flex-direction: column;
+    gap: var(--msg-gap);
+}
+
+/* Individual Message Card */
+.message-viewer-item {
+    padding: 12px;
+    border-radius: 8px;
+    background: var(--msg-bg-item);
+    border: 1px solid transparent;
+    border-left: 3px solid var(--msg-muted); /* Default fallback */
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.message-viewer-item:hover {
+    background: rgba(255, 255, 255, 0.07);
+}
+
+/* Variant Borders */
+.message-viewer-item.user-message { border-left-color: var(--msg-user); }
+.message-viewer-item.assistant-message { border-left-color: var(--msg-ai); }
+.message-viewer-item.system-message { border-left-color: var(--msg-sys); }
+
+/* Metadata (Sender + Time) */
+.message-header {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 6px;
+    font-size: 11px;
+}
+
+.message-sender { font-weight: 600; color: var(--msg-text); }
+.message-timestamp { color: var(--msg-muted); }
+
+/* The Message Text */
+.message-content {
+    color: var(--msg-text);
+    font-size: 13px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+/* Truncation Fade Effect */
+.message-content.truncated {
+    max-height: 120px;
+    overflow: hidden;
+    mask-image: linear-gradient(to bottom, black 60%, transparent 100%);
+    -webkit-mask-image: linear-gradient(to bottom, black 60%, transparent 100%);
+}
+
+.expand-message-btn {
+    margin-top: 8px;
+    font-size: 11px;
+    color: var(--msg-accent);
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+}
+
+/* ==========================================================================
+   FOOTER (SWIPE CONTROLS)
+   ========================================================================== */
+.swipe-controls {
+    padding: 12px;
+    border-top: 1px solid var(--msg-border);
+    display: flex;
+    justify-content: center;
+    gap: 16px;
+    background: var(--msg-bg-header);
+}
+
+.swipe-arrow {
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
+    border: 1px solid var(--msg-border);
+    background: var(--msg-bg-item);
+    color: var(--msg-text);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+.swipe-arrow:hover:not(:disabled) {
+    border-color: var(--msg-accent);
+    color: var(--msg-accent);
+}
+
+.swipe-arrow:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* ==========================================================================
+   UTILITY STATES
+   ========================================================================== */
+/* Loading / Error / Empty */
+.message-viewer-loading, .message-viewer-error, .message-viewer-empty {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--msg-muted);
+}
+.message-viewer-error { color: var(--msg-err); }
+
+/* Highlight Flash Animation */
+.message-highlight-flash { animation: highlightFlash 1.5s ease-out; }
+@keyframes highlightFlash {
+    0%, 50% { background-color: rgba(59, 130, 246, 0.2); }
+    100% { background-color: transparent; }
+}
+
+/* ==========================================================================
+   MOBILE OPTIMIZATION
+   ========================================================================== */
+@media (max-width: 768px) {
+    #message_viewer_overlay {
+        padding: 0;
+        align-items: flex-start; /* Align to top to prevent cutoff */
+    }
+
+    .message-viewer-popup {
+        width: 100vw;
+        max-height: 90vh; /* Takes up most of screen */
+        border-bottom-left-radius: 0;
+        border-bottom-right-radius: 0;
+        border-left: none;
+        border-right: none;
+        border-bottom: none;
+        margin-top: 0;
+    }
+
+    .message-viewer-content {
+        padding: 12px;
+    }
+    
+    .message-viewer-item {
+        padding: 10px; /* Tighter padding */
+    }
+}

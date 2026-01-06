@@ -1,0 +1,108 @@
+/* Default styles */
+
+/* Chat Branches Toggle Styling */
+.chat_branches_checkbox {
+    display: none !important;
+}
+
+.chat_branches-toggle-off {
+    cursor: pointer;
+    opacity: 0.5;
+    filter: grayscale(0.5);
+    transition: opacity 0.4s ease, filter 0.4s ease;
+}
+
+.chat_branches-toggle-off:hover {
+    opacity: 1;
+    filter: none;
+}
+
+.chat_branches-toggle-on {
+    cursor: pointer;
+}
+
+.chat_branches_checkbox:checked ~ .chat_branches-toggle-off,
+.chat_branches_checkbox:not(:checked) ~ .chat_branches-toggle-on {
+    display: none;
+}
+
+.chat_branches_checkbox:not(:checked) ~ .chat_branches-toggle-off,
+.chat_branches_checkbox:checked ~ .chat_branches-toggle-on {
+    display: block;
+}
+
+/* Layout for toggle positioning */
+.chat_branches_toggle_container {
+    justify-content: space-between;
+    align-items: center;
+}
+
+/* Text styling for toggle states */
+strong, small {
+    transition: opacity 0.4s ease, filter 0.4s ease;
+}
+
+.text-muted {
+    opacity: 0.5;
+    filter: grayscale(0.5);
+}
+
+/* Fix hr positioning in inline drawer */
+.inline-drawer-content hr {
+    margin: 10px 0;
+}
+
+/* Fix top hr jumping issue */
+.chat_branches_top_hr {
+    margin-top: 0 !important;
+    margin-bottom: 10px !important;
+}
+
+/* Migration Button Styles */
+#chat_branches_migrate {
+    transition: all 0.2s ease;
+    cursor: pointer;
+}
+
+#chat_branches_migrate.disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    pointer-events: none;
+    background-color: #2d2d2d;
+    border-color: #444;
+    color: #888;
+}
+
+#chat_branches_migrate.disabled:hover {
+    transform: none;
+    box-shadow: none;
+}
+
+/* Text appearance for disabled state */
+#chat_branches_migrate.disabled strong,
+#chat_branches_migrate.disabled small {
+    color: #888 !important;
+}
+
+/* Tooltip for disabled state */
+#chat_branches_migrate.disabled::after {
+    content: attr(data-disabled-title);
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #333;
+    color: white;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+    z-index: 1000;
+}
+
+#chat_branches_migrate.disabled:hover::after {
+    opacity: 1;
+}

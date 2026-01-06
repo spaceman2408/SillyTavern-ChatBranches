@@ -1,0 +1,47 @@
+<!-- Chat Branches Extension Settings Panel -->
+<div class="chat_branches_settings">
+    <div class="inline-drawer">
+        <div class="inline-drawer-toggle inline-drawer-header">
+            <b>Chat Branches</b>
+            <div class="inline-drawer-icon fa-solid fa-circle-chevron-down"></div>
+        </div>
+        <div class="inline-drawer-content">
+            <hr class="chat_branches_top_hr">
+            <div class="flex-container chat_branches_toggle_container">
+                <strong>Enable extension</strong>
+                <label class="checkbox_label" for="chat_branches_enabled">
+                    <input type="checkbox" id="chat_branches_enabled" class="chat_branches_checkbox" />
+                    <span class="chat_branches-toggle-on fa-solid fa-toggle-on fa-lg" data-i18n="[title]Enable Chat Branches" title="Enable Chat Branches"></span>
+                    <span class="chat_branches-toggle-off fa-solid fa-toggle-off fa-lg" data-i18n="[title]Disable Chat Branches" title="Disable Chat Branches"></span>
+                </label>
+            </div>
+            <div class="flex-container">
+                <small>If disabled, new chats will not get a unique id.</small>
+            </div>
+            <div id="chat_branches_plugin_missing_section" style="display: none;">
+                <hr>
+                <div id="chat_branches_plugin_missing" class="flex-container margin-top-10">
+                    <div id="chat_branches_install_plugin" class="menu_button menu_button_icon" title="Install Chat Branches Plugin">
+                        <i class="fa-solid fa-download"></i>
+                        <small>Install Plugin</small>
+                    </div>
+                </div>
+                <div id="chat_branches_plugin_missing_msg" class="flex-container">
+                    <small style="color: #ff6b6b;">Plugin is required for this extension to work.</small>
+                </div>
+                <hr>
+            </div>
+            <hr>
+            <div class="flex-container margin-top-10">
+                <div id="chat_branches_migrate" class="menu_button menu_button_icon" data-i18n="[title]ext_chat_branches_migrate_desc" title="Migrate all chats">
+                    <i class="fa-solid fa-database"></i>
+                    <small data-i18n="ext_chat_branches_migrate">Migrate all chats</small>
+                </div>
+            </div>
+            <div class="flex-container">
+                <small>Only works for the currently selected character.</small>
+            </div>
+            <hr>
+        </div>
+    </div>
+</div>
