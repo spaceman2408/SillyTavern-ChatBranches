@@ -13,4 +13,4 @@ You need the server plugin for it to work, Why? because I have to manipulate the
 [Server plugin](https://github.com/spaceman2408/chat-branches-plugin)
 
 install:
-extensions -> install extension -> https://github.com/spaceman2408/chat-branches
+extensions -> install extension -> https://github.com/spaceman2408/SillyTavern-ChatBranches
