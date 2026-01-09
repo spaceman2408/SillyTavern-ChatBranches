@@ -317,6 +317,11 @@ async function loadSettingsPanel() {
 // ============================================================================
 
 async function ensureChatUUID() {
+    // Skip group chats entirely - let SillyTavern handle them
+    if (selected_group) {
+        return;
+    }
+    
     if (!extension_settings[extensionName].enabled || !chat_metadata) return;
 
     let isNewChat = false;
@@ -332,12 +337,8 @@ async function ensureChatUUID() {
 
     // Register with plugin if this is a new chat or newly tracked
     if (isNewChat) {
-        const characterId = selected_group
-            ? selected_group
-            : characters[this_chid]?.avatar || null;
-        const chatName = selected_group
-            ? groups?.find(x => x.id == selected_group)?.name || 'Unknown Group'
-            : characters[this_chid]?.chat || 'Unknown';
+        const characterId = characters[this_chid]?.avatar || null;
+        const chatName = characters[this_chid]?.chat || 'Unknown';
 
         await registerBranchWithPlugin({
             uuid: chat_metadata.uuid,
@@ -357,10 +358,15 @@ eventSource.on(event_types.CHAT_CREATED, ensureChatUUID);
 
 // Hook chat renamed event to update plugin
 eventSource.on(event_types.CHAT_RENAMED, async (newName) => {
+    // Skip group chats entirely - let SillyTavern handle them
+    if (selected_group) {
+        return;
+    }
+    
     if (!extension_settings[extensionName].enabled) return;
     
     // Skip if character is not available (can happen during deletion)
-    if (!selected_group && (!characters[this_chid] || this_chid === undefined)) {
+    if (!characters[this_chid] || this_chid === undefined) {
         console.log('[Chat Branches] Character not found, skipping chat rename update');
         return;
     }
@@ -372,33 +378,31 @@ eventSource.on(event_types.CHAT_RENAMED, async (newName) => {
         console.warn('[Chat Branches] No UUID found for renamed chat, cannot update stored data, ensure extension is enabled.');
         return;
     }
-    
-    // For group chats, we need to get the group name
-    const chatName = selected_group
-        ? groups?.find(x => x.id == selected_group)?.name
-        : newName;
 
-    console.log('[Chat Branches] Updating stored data with new name:', chatName, 'for UUID:', uuid);
+    console.log('[Chat Branches] Updating stored data with new name:', newName, 'for UUID:', uuid);
     
     await updateBranchInPlugin(uuid, {
-        chat_name: chatName
+        chat_name: newName
     });
 });
 
 // Also update on CHAT_CHANGED to catch any missed updates
 eventSource.on(event_types.CHAT_CHANGED, async () => {
+    // Skip group chats entirely - let SillyTavern handle them
+    if (selected_group) {
+        return;
+    }
+    
     if (!extension_settings[extensionName].enabled) return;
     
     // Skip if we don't have a valid character or chat metadata
     // This can happen during character deletion
     if (!chat_metadata?.uuid) return;
     
-    // For group chats, check selected_group; for character chats, check this_chid
-    if (!selected_group && (!characters[this_chid] || this_chid === undefined)) return;
+    // For character chats, check this_chid
+    if (!characters[this_chid] || this_chid === undefined) return;
     
-    const currentChatName = selected_group
-        ? groups?.find(x => x.id == selected_group)?.name
-        : characters[this_chid]?.chat;
+    const currentChatName = characters[this_chid]?.chat;
     const uuid = chat_metadata.uuid;
     
     // Skip if no valid chat name (can happen during deletion)
@@ -412,6 +416,11 @@ eventSource.on(event_types.CHAT_CHANGED, async () => {
 
 // Hook chat deleted event to remove from plugin
 eventSource.on(event_types.CHAT_DELETED, async (chatName) => {
+    // Skip group chats entirely - let SillyTavern handle them
+    if (selected_group) {
+        return;
+    }
+    
     if (!extension_settings[extensionName].enabled) return;
     
     console.log('[Chat Branches] CHAT_DELETED event fired for:', chatName);
@@ -420,18 +429,16 @@ eventSource.on(event_types.CHAT_DELETED, async (chatName) => {
     // Since the chat is already deleted, we can't get it from chat_metadata
     // We'll need to query the plugin to find branches by chat_name
     
-    // If character/group is being deleted, skip individual chat deletions
+    // If character is being deleted, skip individual chat deletions
     // The CHARACTER_DELETED event will handle cleaning up all branches
-    if (!selected_group && (!characters[this_chid] || this_chid === undefined)) {
+    if (!characters[this_chid] || this_chid === undefined) {
         console.log('[Chat Branches] Character not found, skipping chat deletion (will be handled by CHARACTER_DELETED)');
         return;
     }
     
-    const characterId = selected_group
-        ? selected_group
-        : characters[this_chid]?.avatar;
+    const characterId = characters[this_chid]?.avatar;
     if (!characterId) {
-        console.warn('[Chat Branches] No character/group ID found, cannot delete branch');
+        console.warn('[Chat Branches] No character ID found, cannot delete branch');
         return;
     }
     
@@ -506,15 +513,18 @@ eventSource.on(event_types.CHARACTER_DELETED, async (data) => {
 // ============================================================================
 
 async function createBranchWithUUID(mesId) {
+    // Skip group chats entirely - let SillyTavern handle them
+    if (selected_group) {
+        return null;
+    }
+    
     if (!chat.length || mesId < 0 || mesId >= chat.length) {
         toastr.warning('Invalid message ID.', 'Branch creation failed');
         return;
     }
 
     const lastMes = chat[mesId];
-    const mainChat = selected_group
-        ? groups?.find(x => x.id == selected_group)?.chat_id
-        : characters[this_chid]?.chat;
+    const mainChat = characters[this_chid]?.chat;
     const currentUUID = chat_metadata?.uuid;
     const currentRootUUID = chat_metadata?.root_uuid;
 
@@ -531,16 +541,10 @@ async function createBranchWithUUID(mesId) {
     const name = `Branch #${mesId} - ${humanizedDateTime()}`;
     
     // Save chat with ST
-    if (selected_group) {
-        await saveGroupBookmarkChat(selected_group, name, newMetadata, mesId);
-    } else {
-        await saveChat({ chatName: name, withMetadata: newMetadata, mesId });
-    }
+    await saveChat({ chatName: name, withMetadata: newMetadata, mesId });
 
     // Register branch with plugin
-    const characterId = selected_group
-        ? selected_group
-        : characters[this_chid]?.avatar || null;
+    const characterId = characters[this_chid]?.avatar || null;
 
     await registerBranchWithPlugin({
         uuid: newUUID,
@@ -567,6 +571,12 @@ function hookBranchButton() {
         const mesId = $(this).closest('.mes').attr('mesid');
         if (mesId === undefined) return;
 
+        // Skip group chats entirely - let SillyTavern handle them
+        if (selected_group) {
+            const { branchChat } = await import('../../../bookmarks.js');
+            return branchChat(Number(mesId));
+        }
+
         if (!extension_settings[extensionName].enabled) {
             const { branchChat } = await import('../../../bookmarks.js');
             return branchChat(Number(mesId));
@@ -574,11 +584,7 @@ function hookBranchButton() {
 
         const result = await createBranchWithUUID(Number(mesId));
         if (result) {
-            if (selected_group) {
-                await openGroupChat(selected_group, result);
-            } else {
-                await openCharacterChat(result);
-            }
+            await openCharacterChat(result);
         }
     });
 }
