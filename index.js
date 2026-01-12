@@ -218,11 +218,13 @@ function updateMigrationButtonState(isEnabled) {
 
 function updateTreeViewButtonsState(enabled) {
     if (!enabled || !pluginRunning) {
-        $('#option_chat_tree_view').css('opacity', '0.3').css('pointer-events', 'none');
-        $('.mes_chat_tree_view').css('opacity', '0.3').css('pointer-events', 'none');
+        // Remove buttons instead of styling them
+        removeTreeViewButton();
+        removeMessageTreeViewButtons();
     } else {
-        $('#option_chat_tree_view').css('opacity', '1').css('pointer-events', 'auto');
-        $('.mes_chat_tree_view').css('opacity', '1').css('pointer-events', 'auto');
+        // Restore buttons when enabled
+        restoreTreeViewButton();
+        restoreMessageTreeViewButtons();
     }
 }
 
@@ -630,6 +632,20 @@ function addTreeViewButton() {
     }
 }
 
+/**
+ * Remove the tree view button from the options menu
+ */
+function removeTreeViewButton() {
+    $('#option_chat_tree_view').remove();
+}
+
+/**
+ * Re-add the tree view button to the options menu
+ */
+function restoreTreeViewButton() {
+    addTreeViewButton();
+}
+
 function addMessageTreeViewButton() {
     // Add button to each message's button container
     $('.mes_buttons').each(function() {
@@ -648,6 +664,20 @@ function addMessageTreeViewButton() {
             $createBranch.before(treeViewButton);
         }
     });
+}
+
+/**
+ * Remove all message tree view buttons from the DOM
+ */
+function removeMessageTreeViewButtons() {
+    $('.mes_chat_tree_view').remove();
+}
+
+/**
+ * Re-add all message tree view buttons to their proper locations
+ */
+function restoreMessageTreeViewButtons() {
+    addMessageTreeViewButton();
 }
 
 function hookMessageTreeViewButton() {
@@ -673,17 +703,37 @@ function hookMessageTreeViewButton() {
 
 function hookOptionsMenu() {
     $(document).on('click', '#options_button', function() {
-        setTimeout(() => addTreeViewButton(), 100);
+        if (extension_settings[extensionName].enabled && pluginRunning) {
+            setTimeout(() => addTreeViewButton(), 100);
+        }
     });
 
-    setTimeout(() => addTreeViewButton(), 1000);
+    if (extension_settings[extensionName].enabled && pluginRunning) {
+        setTimeout(() => addTreeViewButton(), 1000);
+    }
 }
 
 // Hook message events to add tree view button
-eventSource.on(event_types.CHAT_CHANGED, addMessageTreeViewButton);
-eventSource.on(event_types.MESSAGE_RECEIVED, addMessageTreeViewButton);
-eventSource.on(event_types.MESSAGE_SENT, addMessageTreeViewButton);
-eventSource.on(event_types.MESSAGE_UPDATED, addMessageTreeViewButton);
+eventSource.on(event_types.CHAT_CHANGED, function() {
+    if (extension_settings[extensionName].enabled && pluginRunning) {
+        addMessageTreeViewButton();
+    }
+});
+eventSource.on(event_types.MESSAGE_RECEIVED, function() {
+    if (extension_settings[extensionName].enabled && pluginRunning) {
+        addMessageTreeViewButton();
+    }
+});
+eventSource.on(event_types.MESSAGE_SENT, function() {
+    if (extension_settings[extensionName].enabled && pluginRunning) {
+        addMessageTreeViewButton();
+    }
+});
+eventSource.on(event_types.MESSAGE_UPDATED, function() {
+    if (extension_settings[extensionName].enabled && pluginRunning) {
+        addMessageTreeViewButton();
+    }
+});
 
 // ============================================================================
 // Initialize Extension
@@ -696,8 +746,10 @@ jQuery(async function() {
     hookOptionsMenu();
     hookMessageTreeViewButton();
 
-    // Add buttons to existing messages
-    setTimeout(addMessageTreeViewButton, 1000);
+    // Only add buttons if extension is enabled and plugin is running
+    if (extension_settings[extensionName].enabled && pluginRunning) {
+        setTimeout(addMessageTreeViewButton, 1000);
+    }
 
     $(document).on('click', '#option_chat_tree_view', function() {
         // Check if plugin is running before showing tree view
