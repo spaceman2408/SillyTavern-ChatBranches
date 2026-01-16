@@ -15,6 +15,7 @@ export class ChatMigrator {
         this.extensionName = dependencies.extensionName;
         this.uuidv4 = dependencies.uuidv4;
         this.registerBranchWithPlugin = dependencies.registerBranchWithPlugin;
+        this.pluginBaseUrl = dependencies.pluginBaseUrl;
         this.selected_group = dependencies.selected_group;
 
         // State
@@ -262,20 +263,51 @@ export class ChatMigrator {
                             }
                         } else {
                             // Chat already has UUIDs, but might not be in plugin yet
-                            // Register it anyway
+                            // Check if branch already exists before registering
                             const fullChatData = await this.fetchFullChatData(character, chatName);
                             if (fullChatData && Array.isArray(fullChatData) && fullChatData.length > 0) {
                                 const firstEntry = fullChatData[0];
                                 if (firstEntry.chat_metadata?.uuid) {
-                                    await this.registerBranchWithPlugin({
-                                        uuid: firstEntry.chat_metadata.uuid,
-                                        parent_uuid: firstEntry.chat_metadata.parent_uuid || null,
-                                        root_uuid: firstEntry.chat_metadata.root_uuid || firstEntry.chat_metadata.uuid,
-                                        character_id: character.avatar,
-                                        chat_name: chatName,
-                                        branch_point: null,
-                                        created_at: chatData.create_date || Date.now()
-                                    });
+                                    // Check if branch already exists for this chat
+                                    try {
+                                        const response = await fetch(`${this.pluginBaseUrl}/branches?chat_name=${encodeURIComponent(chatName)}`, {
+                                            headers: { 'X-CSRF-Token': this.token }
+                                        });
+                                        const data = await response.json();
+                                        if (data.success && data.branches.length > 0) {
+                                            // Find branch for this character
+                                            const existingBranch = data.branches.find(b => b.character_id === character.avatar && b.chat_name === chatName);
+                                            if (existingBranch) {
+                                                // Branch already exists, skip registration
+                                                console.log('[ChatMigrator] Branch already exists for chat:', chatName);
+                                            } else {
+                                                // Register the branch
+                                                await this.registerBranchWithPlugin({
+                                                    uuid: firstEntry.chat_metadata.uuid,
+                                                    parent_uuid: firstEntry.chat_metadata.parent_uuid || null,
+                                                    root_uuid: firstEntry.chat_metadata.root_uuid || firstEntry.chat_metadata.uuid,
+                                                    character_id: character.avatar,
+                                                    chat_name: chatName,
+                                                    branch_point: null,
+                                                    created_at: chatData.create_date || Date.now()
+                                                });
+                                            }
+                                        } else {
+                                            // No branches found, register it
+                                            await this.registerBranchWithPlugin({
+                                                uuid: firstEntry.chat_metadata.uuid,
+                                                parent_uuid: firstEntry.chat_metadata.parent_uuid || null,
+                                                root_uuid: firstEntry.chat_metadata.root_uuid || firstEntry.chat_metadata.uuid,
+                                                character_id: character.avatar,
+                                                chat_name: chatName,
+                                                branch_point: null,
+                                                created_at: chatData.create_date || Date.now()
+                                            });
+                                        }
+                                    } catch (error) {
+                                        console.error('[ChatMigrator] Error checking for existing branch:', error);
+                                        // If we can't check, don't register to be safe
+                                    }
                                 }
                             }
                         }
@@ -380,6 +412,7 @@ export class ChatMigrator {
         if (dependencies.registerBranchWithPlugin !== undefined) {
             this.registerBranchWithPlugin = dependencies.registerBranchWithPlugin;
         }
+        if (dependencies.pluginBaseUrl !== undefined) this.pluginBaseUrl = dependencies.pluginBaseUrl;
         if (dependencies.selected_group !== undefined) this.selected_group = dependencies.selected_group;
     }
 

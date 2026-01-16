@@ -645,6 +645,7 @@ const chatMigrator = new ChatMigrator({
     extensionName,
     uuidv4,
     registerBranchWithPlugin,
+    pluginBaseUrl: PLUGIN_BASE_URL,
     selected_group
 });
 
