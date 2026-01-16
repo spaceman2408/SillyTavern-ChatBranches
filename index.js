@@ -26,7 +26,7 @@ import { ChatMigrator } from './src/ChatMigrator.js';
  * Injects UUIDs into chat metadata for branch relationship tracking
  */
 
-const extensionName = 'chat-branches';
+const extensionName = 'SillyTavern-ChatBranches';
 const PLUGIN_BASE_URL = '/api/plugins/chat-branches-plugin';
 
 let pluginRunning = false;
