@@ -3,22 +3,22 @@
    ========================================================================== */
 :root {
     /* Colors */
-    --msg-bg-overlay: rgba(15, 15, 20, 0.75);
-    --msg-bg-popup: rgba(30, 30, 35, 0.95);
-    --msg-bg-header: rgba(25, 25, 30, 0.98);
-    --msg-bg-item: rgba(255, 255, 255, 0.03);
-    --msg-border: rgba(255, 255, 255, 0.12);
+    --msg-bg-overlay: rgba(0, 0, 0, 0.7);
+    --msg-bg-popup: rgba(40, 40, 45, 0.95);
+    --msg-bg-header: rgba(45, 45, 50, 0.95);
+    --msg-bg-item: rgba(60, 60, 65, 0.8);
+    --msg-border: rgba(255, 255, 255, 0.1);
     
     /* Text & Accents */
-    --msg-text: #e4e4e7;
-    --msg-muted: #71717a;
-    --msg-accent: #3b82f6;
+    --msg-text: #e0e0e0;
+    --msg-muted: #999;
+    --msg-accent: #4a9eff;
     
     /* Role Colors */
-    --msg-user: #3b82f6;      /* Blue */
-    --msg-ai: #10b981;        /* Green */
-    --msg-sys: #f59e0b;       /* Orange */
-    --msg-err: #ef4444;       /* Red */
+    --msg-user: #4a9eff;
+    --msg-ai: #4ade80;
+    --msg-sys: #fbbf24;
+    --msg-err: #f87171;
 
     /* Dimensions */
     --msg-width: 500px;
@@ -38,23 +38,22 @@
     z-index: var(--z-msg-overlay);
     background: var(--msg-bg-overlay);
     display: flex;
-    align-items: center;     /* Vertically Center */
-    justify-content: center; /* Horizontally Center */
-    padding: 20px; /* Prevent touching edges on desktop */
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
     backdrop-filter: blur(2px);
-    /* Remove opacity/pointer-events transitions - handle visibility with display instead */
 }
 
 .message-viewer-popup {
     width: var(--msg-width);
     max-width: 100%;
-    max-height: 80vh; /* Don't cover entire screen height */
+    max-height: 80vh;
     background: var(--msg-bg-popup);
     border: 1px solid var(--msg-border);
     border-radius: var(--msg-radius);
     display: flex;
     flex-direction: column;
-    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
     overflow: hidden;
 }
 
@@ -82,7 +81,7 @@
 }
 
 .message-viewer-btn {
-    background: transparent;
+    background: rgba(70, 70, 75, 0.6);
     border: 1px solid var(--msg-border);
     color: var(--msg-text);
     padding: 4px 10px;
@@ -117,13 +116,13 @@
     border-radius: 8px;
     background: var(--msg-bg-item);
     border: 1px solid transparent;
-    border-left: 3px solid var(--msg-muted); /* Default fallback */
+    border-left: 3px solid var(--msg-muted);
     cursor: pointer;
-    transition: background 0.2s;
+    transition: border-color 0.2s;
 }
 
 .message-viewer-item:hover {
-    background: rgba(255, 255, 255, 0.07);
+    border-color: var(--msg-accent);
 }
 
 /* Variant Borders */
@@ -178,7 +177,6 @@
     display: flex;
     justify-content: center;
     gap: 16px;
-    background: var(--msg-bg-header);
 }
 
 .swipe-arrow {
@@ -186,7 +184,7 @@
     height: 32px;
     border-radius: 6px;
     border: 1px solid var(--msg-border);
-    background: var(--msg-bg-item);
+    background: rgba(70, 70, 75, 0.8);
     color: var(--msg-text);
     display: flex;
     align-items: center;
@@ -216,7 +214,7 @@
 /* Highlight Flash Animation */
 .message-highlight-flash { animation: highlightFlash 1.5s ease-out; }
 @keyframes highlightFlash {
-    0%, 50% { background-color: rgba(59, 130, 246, 0.2); }
+    0%, 50% { background-color: rgba(74, 158, 255, 0.3); }
     100% { background-color: transparent; }
 }
 
