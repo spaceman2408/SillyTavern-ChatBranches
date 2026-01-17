@@ -69,7 +69,6 @@ export class ChatTreeView {
         if (dependencies.selected_group !== undefined) {
             this.selected_group = dependencies.selected_group;
         }
-        // Update rename handler dependencies
         this.renameHandler.updateDependencies(dependencies);
     }
 
@@ -113,40 +112,18 @@ export class ChatTreeView {
                 throw new Error('Character ID not found');
             }
 
-            // Fetch tree from plugin (instant!)
             const treeData = await this.fetchTreeFromPlugin(characterId);
             
-            // Build node map and find current chat
             this.buildNodeMapFromTree(treeData);
-            
-            // Find current chat in the tree
             this.findCurrentNode();
-            
-            // Isolate only the tree containing current chat
             this.isolateActiveTree();
-
-            // Auto-expand path to current node
             this.expandActivePath();
-
-            // Populate root dropdown
             this.populateRootDropdown();
-
-            // Render
             this.render();
-            
-            // Center on active node
             this.centerOnActive();
 
         } catch (err) {
             console.error('[Chat Branches] Error loading tree:', err);
-            
-            // Fallback to legacy scanning if plugin fails
-            if (err.message.includes('fetch') || err.message.includes('404')) {
-                console.warn('[Chat Branches] Plugin unavailable, falling back to legacy mode');
-                await this.loadAndBuildTreeLegacy();
-            } else {
-                $('#chat_tree_content').html(`<div class="chat-tree-error">Error: ${err.message}</div>`);
-            }
         } finally {
             this.setLoading(false);
         }
@@ -206,7 +183,7 @@ export class ChatTreeView {
         this.allTreeRoots = this.allTreeRoots.filter((root, index, self) =>
             self.findIndex(r => r.id === root.id) === index
         );
-        this.treeRoots = [...this.allTreeRoots]; // Initialize with all roots
+        this.treeRoots = [...this.allTreeRoots];
     }
 
     findCurrentNode() {
@@ -304,106 +281,6 @@ export class ChatTreeView {
     }
 
     // =========================================================================
-    // LEGACY FALLBACK (Keep existing logic for backwards compatibility)
-    // =========================================================================
-
-    async loadAndBuildTreeLegacy() {
-        try {
-            const allChats = await this.fetchChats();
-            const enrichedChats = await this.hydrateChatMetadata(allChats);
-            this.buildGraphLegacy(enrichedChats);
-            this.isolateActiveTree();
-            this.expandActivePath();
-            this.render();
-            this.centerOnActive();
-        } catch (err) {
-            console.error('[Chat Branches] Legacy fallback failed:', err);
-            $('#chat_tree_content').html(`<div class="chat-tree-error">Error: ${err.message}</div>`);
-        }
-    }
-
-    async fetchChats() {
-        const response = await fetch('/api/characters/chats', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': this.token },
-            body: JSON.stringify({ avatar_url: this.characters[this.this_chid].avatar }),
-        });
-        if (!response.ok) throw new Error('Failed to fetch chat list');
-        return await response.json();
-    }
-
-    async hydrateChatMetadata(chats) {
-        const batchSize = 10;
-        const enriched = [];
-        
-        const fetchMeta = async (chat) => {
-            const name = chat.file_name.replace('.jsonl', '');
-            try {
-                const res = await fetch('/api/chats/get', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': this.token },
-                    body: JSON.stringify({
-                        ch_name: this.characters[this.this_chid].name,
-                        file_name: name,
-                        avatar_url: this.characters[this.this_chid].avatar,
-                    }),
-                });
-                const data = await res.json();
-                return { 
-                    ...chat, 
-                    cleanName: name, 
-                    metadata: data[0]?.chat_metadata || {} 
-                };
-            } catch (e) {
-                return { ...chat, cleanName: name, metadata: {} };
-            }
-        };
-
-        for (let i = 0; i < chats.length; i += batchSize) {
-            const batch = chats.slice(i, i + batchSize);
-            const results = await Promise.all(batch.map(c => fetchMeta(c)));
-            enriched.push(...results);
-            $('.chat-tree-loading-text').text(`Scanning ${Math.min(enriched.length, chats.length)} / ${chats.length} chats...`);
-        }
-        return enriched;
-    }
-
-    buildGraphLegacy(chats) {
-        this.nodeMap.clear();
-        const nodesByName = new Map();
-
-        // Pass 1: Create Nodes
-        chats.forEach(c => {
-            const uuid = c.metadata.uuid || `legacy_${c.cleanName}`;
-            const node = {
-                id: uuid,
-                name: c.cleanName,
-                parentId: c.metadata.parent_uuid,
-                children: [],
-                data: { ...c, chat_name: c.cleanName },
-                parent: null
-            };
-            this.nodeMap.set(uuid, node);
-            nodesByName.set(c.cleanName, node);
-        });
-
-        // Pass 2: Link Parents
-        const roots = [];
-        for (const node of this.nodeMap.values()) {
-            if (node.parentId && this.nodeMap.has(node.parentId)) {
-                const parent = this.nodeMap.get(node.parentId);
-                parent.children.push(node);
-                node.parent = parent;
-            } else {
-                roots.push(node);
-            }
-        }
-
-        this.treeRoots = roots;
-        this.currentNode = nodesByName.get(this.currentChatFile);
-    }
-
-    // =========================================================================
     // RENDERING LOGIC
     // =========================================================================
 
@@ -444,10 +321,10 @@ export class ChatTreeView {
             <div class="tree-branch">
                 <div class="tree-entry">
                     <div class="tree-node ${isActive ? 'active-node' : ''} ${isRenaming ? 'renaming' : ''}"
-                         data-uuid="${node.id}"
-                         data-name="${node.name}"
-                         title="${node.name}${msgCount ? ` (Branch at msg ${msgCount})` : ''}">
-                         
+                        data-uuid="${node.id}"
+                        data-name="${node.name}"
+                        title="${node.name}${msgCount ? ` (Branch at msg ${msgCount})` : ''}">
+                        
                         <div class="node-content">
                             <span class="node-icon"><i class="fa-solid fa-message"></i></span>
                             ${isRenaming ? this.renderRenameInput(node) : `
@@ -520,13 +397,13 @@ export class ChatTreeView {
         return `
             <div class="rename-input-container">
                 <input type="text"
-                       class="rename-input"
-                       value="${node.name}"
-                       data-uuid="${node.id}"
-                       maxlength="255"
-                       placeholder="Enter new name"
-                       autocomplete="off"
-                       spellcheck="false">
+                    class="rename-input"
+                    value="${node.name}"
+                    data-uuid="${node.id}"
+                    maxlength="255"
+                    placeholder="Enter new name"
+                    autocomplete="off"
+                    spellcheck="false">
                 <div class="rename-actions">
                     <button class="rename-confirm" data-uuid="${node.id}" title="Confirm">
                         <i class="fa-solid fa-check"></i>
@@ -551,12 +428,12 @@ export class ChatTreeView {
 
         // Use event delegation and remove old handlers first
         $('#chat_tree_content').off('click.expandToggle', '.expand-toggle')
-                               .off('dblclick.treeNodeDblclick', '.tree-node')
-                               .off('contextmenu.chatTree')
-                               .off('click.renameIcon', '.rename-icon')
-                               .off('keydown.renameInput', '.rename-input')
-                               .off('click.renameConfirm', '.rename-confirm')
-                               .off('click.renameCancel', '.rename-cancel');
+                            .off('dblclick.treeNodeDblclick', '.tree-node')
+                            .off('contextmenu.chatTree')
+                            .off('click.renameIcon', '.rename-icon')
+                            .off('keydown.renameInput', '.rename-input')
+                            .off('click.renameConfirm', '.rename-confirm')
+                            .off('click.renameCancel', '.rename-cancel');
         $(document).off('click.renameOutside');
         
         $('#chat_tree_content').on('click.expandToggle', '.expand-toggle', function(e) {
@@ -641,16 +518,7 @@ export class ChatTreeView {
                 const touch = e.originalEvent.touches[0];
                 
                 // Start long-press timer
-                longPressTimer = setTimeout(() => {
-                    // Trigger context menu on long press
-                    const touchEvent = {
-                        clientX: touch.clientX,
-                        clientY: touch.clientY,
-                        target: e.target,
-                        preventDefault: () => {},
-                        stopPropagation: () => {}
-                    };
-                    
+                longPressTimer = setTimeout(() => {                 
                     // Find the closest tree-node
                     const $treeNode = $node;
                     const uuid = $treeNode.data('uuid');
@@ -670,7 +538,6 @@ export class ChatTreeView {
             // Only trigger if not clicking on a tree node or expand toggle
             if (e.touches.length === 1 && $(e.target).closest('.tree-node, .expand-toggle, .context-menu-option').length === 0) {
                 const touch = e.originalEvent.touches[0];
-                
                 // Start long-press timer
                 longPressTimer = setTimeout(() => {
                     // Show blank area context menu
@@ -743,7 +610,6 @@ export class ChatTreeView {
         try {
             await this.openCharacterChat(chatName);
             this.currentChatFile = chatName;
-            
             // Reload tree from plugin for updated perspective
             await this.loadAndBuildTree();
             
