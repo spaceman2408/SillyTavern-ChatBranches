@@ -20,6 +20,7 @@ import { humanizedDateTime } from '../../../RossAscends-mods.js';
 import { POPUP_TYPE, Popup } from '../../../popup.js';
 import { ChatTreeView } from './src/ChatTreeView.js';
 import { ChatMigrator } from './src/ChatMigrator.js';
+import { StorageRebuilder } from './src/StorageRebuilder.js';
 
 /**
  * Chat Branches Extension
@@ -639,6 +640,18 @@ const chatMigrator = new ChatMigrator({
     selected_group
 });
 
+// Create storage rebuilder instance with dependencies
+const storageRebuilder = new StorageRebuilder({
+    characters,
+    this_chid,
+    token,
+    extensionName,
+    uuidv4,
+    registerBranchWithPlugin,
+    pluginBaseUrl: PLUGIN_BASE_URL,
+    selected_group
+});
+
 function addTreeViewButton() {
     if ($('#option_chat_tree_view').length > 0) return;
 
@@ -814,6 +827,20 @@ jQuery(async function() {
         chatMigrator.showMigrationDialog();
     });
     */
+
+    // Bind rebuild storage button click
+    $(document).on('click', '#chat_branches_rebuild', function() {
+        // Update dependencies before rebuilding (this_chid may have changed)
+        storageRebuilder.updateDependencies({
+            characters,
+            this_chid,
+            token,
+            pluginBaseUrl: PLUGIN_BASE_URL,
+            selected_group
+        });
+
+        storageRebuilder.showRebuildDialog();
+    });
 
     // Bind install plugin button click
     $(document).on('click', '#chat_branches_install_plugin', async function() {
