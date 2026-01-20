@@ -20,6 +20,7 @@ import { humanizedDateTime } from '../../../RossAscends-mods.js';
 import { POPUP_TYPE, Popup } from '../../../popup.js';
 import { ChatTreeView } from './src/ChatTreeView.js';
 import { ChatMigrator } from './src/ChatMigrator.js';
+import { StorageRebuilder } from './src/StorageRebuilder.js';
 
 /**
  * Chat Branches Extension
@@ -109,6 +110,10 @@ async function registerBranchWithPlugin(branchData) {
     if (!extension_settings[extensionName].enabled || !pluginRunning) return;
 
     try {
+        if (branchData.chat_name !== undefined) {
+            branchData.chat_name = String(branchData.chat_name);
+        }
+
         const response = await fetch(`${PLUGIN_BASE_URL}/branch`, {
             method: 'POST',
             headers: {
@@ -146,6 +151,10 @@ async function updateBranchInPlugin(uuid, updates) {
     }
 
     try {
+        if (updates.chat_name !== undefined) {
+            updates.chat_name = String(updates.chat_name);
+        }
+
         console.log('[Chat Branches] Sending update to stored data:', { uuid, updates });
         const response = await fetch(`${PLUGIN_BASE_URL}/branch/${uuid}`, {
             method: 'PATCH',
@@ -359,7 +368,7 @@ async function ensureChatUUID() {
     // Register with plugin if this is a new chat or newly tracked
     if (isNewChat) {
         const characterId = characters[this_chid]?.avatar || null;
-        const chatName = characters[this_chid]?.chat || 'Unknown';
+        const chatName = String(characters[this_chid]?.chat || 'Unknown');
 
         await registerBranchWithPlugin({
             uuid: chat_metadata.uuid,
@@ -572,7 +581,7 @@ async function createBranchWithUUID(mesId) {
         parent_uuid: currentUUID,
         root_uuid: currentRootUUID || currentUUID,
         character_id: characterId,
-        chat_name: name,
+        chat_name: String(name),
         branch_point: mesId,
         created_at: Date.now()
     });
@@ -627,8 +636,21 @@ const chatTreeView = new ChatTreeView({
     selected_group
 });
 
-// Create migrator instance with dependencies
-const chatMigrator = new ChatMigrator({
+// Create migrator instance with dependencies - disabled for now
+/*const chatMigrator = new ChatMigrator({
+    characters,
+    this_chid,
+    token,
+    extensionName,
+    uuidv4,
+    registerBranchWithPlugin,
+    pluginBaseUrl: PLUGIN_BASE_URL,
+    selected_group
+});
+*/
+
+// Create storage rebuilder instance with dependencies
+const storageRebuilder = new StorageRebuilder({
     characters,
     this_chid,
     token,
@@ -814,6 +836,20 @@ jQuery(async function() {
         chatMigrator.showMigrationDialog();
     });
     */
+
+    // Bind rebuild storage button click
+    $(document).on('click', '#chat_branches_rebuild', function() {
+        // Update dependencies before rebuilding (this_chid may have changed)
+        storageRebuilder.updateDependencies({
+            characters,
+            this_chid,
+            token,
+            pluginBaseUrl: PLUGIN_BASE_URL,
+            selected_group
+        });
+
+        storageRebuilder.showRebuildDialog();
+    });
 
     // Bind install plugin button click
     $(document).on('click', '#chat_branches_install_plugin', async function() {

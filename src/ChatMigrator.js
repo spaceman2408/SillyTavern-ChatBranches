@@ -248,7 +248,7 @@ export class ChatMigrator {
                                         parent_uuid: firstEntry.chat_metadata.parent_uuid || null,
                                         root_uuid: firstEntry.chat_metadata.root_uuid,
                                         character_id: character.avatar,
-                                        chat_name: chatName,
+                                        chat_name: String(chatName),
                                         branch_point: null,
                                         created_at: chatData.create_date || Date.now()
                                     });
@@ -287,7 +287,7 @@ export class ChatMigrator {
                                                     parent_uuid: firstEntry.chat_metadata.parent_uuid || null,
                                                     root_uuid: firstEntry.chat_metadata.root_uuid || firstEntry.chat_metadata.uuid,
                                                     character_id: character.avatar,
-                                                    chat_name: chatName,
+                                                    chat_name: String(chatName),
                                                     branch_point: null,
                                                     created_at: chatData.create_date || Date.now()
                                                 });
@@ -299,7 +299,7 @@ export class ChatMigrator {
                                                 parent_uuid: firstEntry.chat_metadata.parent_uuid || null,
                                                 root_uuid: firstEntry.chat_metadata.root_uuid || firstEntry.chat_metadata.uuid,
                                                 character_id: character.avatar,
-                                                chat_name: chatName,
+                                                chat_name: String(chatName),
                                                 branch_point: null,
                                                 created_at: chatData.create_date || Date.now()
                                             });
