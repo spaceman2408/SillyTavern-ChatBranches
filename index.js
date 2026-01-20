@@ -636,8 +636,8 @@ const chatTreeView = new ChatTreeView({
     selected_group
 });
 
-// Create migrator instance with dependencies
-const chatMigrator = new ChatMigrator({
+// Create migrator instance with dependencies - disabled for now
+/*const chatMigrator = new ChatMigrator({
     characters,
     this_chid,
     token,
@@ -647,6 +647,7 @@ const chatMigrator = new ChatMigrator({
     pluginBaseUrl: PLUGIN_BASE_URL,
     selected_group
 });
+*/
 
 // Create storage rebuilder instance with dependencies
 const storageRebuilder = new StorageRebuilder({
