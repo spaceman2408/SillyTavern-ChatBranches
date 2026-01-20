@@ -256,68 +256,113 @@ export class StorageRebuilder {
 
             this.updateProgress(0, chats.length, 'Processing chats...');
 
-            // Calculate number of batches
-            const totalBatches = Math.ceil(chats.length / BATCH_SIZE);
+            // First pass: collect all branch data from chat files
+            const branchDataList = [];
+            const uuidToChatName = new Map(); // Track UUID to chat name mapping
 
-            // Process chats in batches
-            for (let batchIndex = 0; batchIndex < totalBatches; batchIndex++) {
-                const startIdx = batchIndex * BATCH_SIZE;
-                const endIdx = Math.min(startIdx + BATCH_SIZE, chats.length);
-                const batch = chats.slice(startIdx, endIdx);
+            this.updateProgress(0, chats.length, 'Reading chat metadata...');
 
-                // Update status to show current batch
-                this.updateProgress(startIdx, chats.length,
-                    `Processing batch ${batchIndex + 1} of ${totalBatches}...`);
+            for (let i = 0; i < chats.length; i++) {
+                const chatData = chats[i];
+                const chatName = chatData.file_name.replace(/\.jsonl$/g, '');
 
-                // Process each chat in the current batch
-                for (let i = 0; i < batch.length; i++) {
-                    const chatData = batch[i];
-                    const globalIndex = startIdx + i;
-                    const chatName = chatData.file_name.replace(/\.jsonl$/g, '');
+                try {
+                    this.updateProgress(i, chats.length, `Reading ${chatName}...`);
 
-                    try {
-                        this.updateProgress(globalIndex, chats.length, `Processing ${chatName}...`);
+                    // Fetch the full chat data
+                    const fullChatData = await this.fetchFullChatData(character, chatName);
 
-                        // Fetch the full chat data
-                        const fullChatData = await this.fetchFullChatData(character, chatName);
+                    if (fullChatData && Array.isArray(fullChatData) && fullChatData.length > 0) {
+                        const firstEntry = fullChatData[0];
 
-                        if (fullChatData && Array.isArray(fullChatData) && fullChatData.length > 0) {
-                            const firstEntry = fullChatData[0];
+                        // Check if chat has UUID metadata
+                        if (firstEntry.chat_metadata && firstEntry.chat_metadata.uuid) {
+                            const uuid = firstEntry.chat_metadata.uuid;
+                            const parentUuid = firstEntry.chat_metadata.parent_uuid || null;
+                            const rootUuid = firstEntry.chat_metadata.root_uuid || uuid;
+                            const branchPoint = firstEntry.chat_metadata.branch_point || null;
 
-                            // Check if chat has UUID metadata
-                            if (firstEntry.chat_metadata && firstEntry.chat_metadata.uuid) {
-                                // Register with plugin
-                                await this.registerBranchWithPlugin({
-                                    uuid: firstEntry.chat_metadata.uuid,
-                                    parent_uuid: firstEntry.chat_metadata.parent_uuid || null,
-                                    root_uuid: firstEntry.chat_metadata.root_uuid || firstEntry.chat_metadata.uuid,
-                                    character_id: character.avatar,
-                                    chat_name: chatName,
-                                    branch_point: null,
-                                    created_at: chatData.create_date || Date.now()
-                                });
-
-                                processedCount++;
-                            } else {
-                                // Skip chat without UUID
-                                console.log(`[StorageRebuilder] Skipping ${chatName}: No UUID found`);
+                            // Check for duplicate UUID (data corruption issue)
+                            if (uuidToChatName.has(uuid)) {
+                                const existingChatName = uuidToChatName.get(uuid);
+                                console.error(`[StorageRebuilder] Duplicate UUID ${uuid} in chats "${existingChatName}" and "${chatName}". Skipping "${chatName}".`);
                                 skippedCount++;
+                                continue; // Skip this chat
                             }
+
+                            // Track UUID to chat name mapping
+                            uuidToChatName.set(uuid, chatName);
+
+                            branchDataList.push({
+                                uuid,
+                                parent_uuid: parentUuid,
+                                root_uuid: rootUuid,
+                                character_id: character.avatar,
+                                chat_name: String(chatName), // Ensure string to prevent "used as a key" warnings
+                                branch_point: branchPoint,
+                                created_at: chatData.create_date || Date.now()
+                            });
                         } else {
-                            console.warn(`[StorageRebuilder] Could not fetch full chat data for ${chatName}`);
+                            // Skip chat without UUID
                             skippedCount++;
                         }
+                    } else {
+                        skippedCount++;
+                    }
+                } catch (error) {
+                    console.error(`[StorageRebuilder] Error reading chat ${chatName}:`, error);
+                    skippedCount++;
+                }
+            }
+
+            console.log(`[StorageRebuilder] Collected ${branchDataList.length} branches, ${skippedCount} chats skipped`);
+
+            // Second pass: validate and fix parent relationships before registering
+            this.updateProgress(0, branchDataList.length, 'Validating branches...');
+
+            // Validate and fix parent relationships
+            const validatedBranches = this.validateAndFixBranches(branchDataList, uuidToChatName);
+
+            this.updateProgress(0, validatedBranches.length, 'Registering branches...');
+
+            // Sort branches: roots first, then by creation date
+            const sortedBranches = this.sortBranchesForRegistration(validatedBranches);
+
+            // Register branches in batches
+            const totalBatches = Math.ceil(sortedBranches.length / BATCH_SIZE);
+
+            for (let batchIndex = 0; batchIndex < totalBatches; batchIndex++) {
+                const startIdx = batchIndex * BATCH_SIZE;
+                const endIdx = Math.min(startIdx + BATCH_SIZE, sortedBranches.length);
+                const batch = sortedBranches.slice(startIdx, endIdx);
+
+                // Update status to show current batch
+                this.updateProgress(startIdx, sortedBranches.length,
+                    `Registering batch ${batchIndex + 1} of ${totalBatches}...`);
+
+                // Register each branch in the current batch
+                for (let i = 0; i < batch.length; i++) {
+                    const branchData = batch[i];
+                    const globalIndex = startIdx + i;
+
+                    try {
+                        this.updateProgress(globalIndex, sortedBranches.length, `Registering ${branchData.chat_name}...`);
+
+                        // Register with plugin
+                        await this.registerBranchWithPlugin(branchData);
+
+                        processedCount++;
                     } catch (error) {
-                        console.error(`[StorageRebuilder] Error processing chat ${chatName}:`, error);
+                        console.error(`[StorageRebuilder] Error registering branch ${branchData.chat_name}:`, error);
                         skippedCount++;
                     }
 
-                    this.updateProgress(globalIndex + 1, chats.length);
+                    this.updateProgress(globalIndex + 1, sortedBranches.length);
                 }
 
                 // Add a small delay between batches
                 if (batchIndex < totalBatches - 1) {
-                    this.updateProgress(endIdx, chats.length,
+                    this.updateProgress(endIdx, sortedBranches.length,
                         `Pausing to free resources... (${batchIndex + 1}/${totalBatches} batches done)`);
                     await new Promise(resolve => setTimeout(resolve, 500));
                 }
@@ -328,6 +373,93 @@ export class StorageRebuilder {
             console.error('StorageRebuilder: Error during rebuild:', error);
             return { processedCount, skippedCount, error: error.message };
         }
+    }
+
+    /**
+     * Sort branches to ensure parents are registered before children
+     * Uses topological sort based on UUID parent-child relationships
+     * @param {Array} branches - Array of branch data objects
+     * @returns {Array} - Sorted array with parents before children
+     */
+    sortBranchesForRegistration(branches) {
+        // Create a map for quick lookup
+        const branchMap = new Map(branches.map(b => [b.uuid, b]));
+
+        // Build adjacency list for topological sort
+        const visited = new Set();
+        const temp = new Set();
+        const sorted = [];
+
+        // Visit function for topological sort
+        const visit = (uuid) => {
+            if (visited.has(uuid)) {
+                return; // Already processed
+            }
+            if (temp.has(uuid)) {
+                console.warn(`[StorageRebuilder] Circular dependency detected for ${uuid}`);
+                return;
+            }
+
+            const branch = branchMap.get(uuid);
+            if (!branch) {
+                console.warn(`[StorageRebuilder] Branch not found in map: ${uuid}`);
+                return;
+            }
+
+            // Mark as temporarily visited
+            temp.add(uuid);
+
+            // Visit parent first if it exists
+            if (branch.parent_uuid) {
+                visit(branch.parent_uuid);
+            }
+
+            // Mark as permanently visited and add to sorted list
+            temp.delete(uuid);
+            visited.add(uuid);
+            sorted.push(branch);
+        };
+
+        // Visit all branches
+        for (const branch of branches) {
+            visit(branch.uuid);
+        }
+
+        return sorted;
+    }
+
+    /**
+     * Validate and fix parent relationships in branch data
+     * Only marks as orphaned if parent truly doesn't exist in collected data
+     * @param {Array} branches - Array of branch data objects
+     * @param {Map} uuidToChatName - Map of UUID to chat name (from collected data)
+     * @returns {Array} - Validated branch data with fixed relationships
+     */
+    validateAndFixBranches(branches, uuidToChatName) {
+        const validated = [];
+        let orphanedCount = 0;
+
+        for (const branch of branches) {
+            // Check if parent exists in our collected data
+            if (branch.parent_uuid && !uuidToChatName.has(branch.parent_uuid)) {
+                // Parent doesn't exist in collected data - this branch is orphaned
+                console.warn(`[StorageRebuilder] Orphaned branch: ${branch.chat_name} (parent ${branch.parent_uuid} not found)`);
+
+                // Create a copy with parent_uuid set to null
+                const fixedBranch = { ...branch, parent_uuid: null };
+                validated.push(fixedBranch);
+                orphanedCount++;
+            } else {
+                // Parent exists or no parent - keep as is
+                validated.push(branch);
+            }
+        }
+
+        if (orphanedCount > 0) {
+            console.log(`[StorageRebuilder] Fixed ${orphanedCount} orphaned branches`);
+        }
+
+        return validated;
     }
 
     /**
