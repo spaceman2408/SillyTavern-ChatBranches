@@ -102,13 +102,15 @@ export class ChatRenameHandler {
      * @returns {Promise<void>}
      */
     async updateBranchInPlugin(uuid, newName) {
+        const stringName = String(newName);
+
         const response = await fetch(`${this.pluginBaseUrl}/branch/${uuid}`, {
             method: 'PATCH',
             headers: {
                 'Content-Type': 'application/json',
                 'X-CSRF-Token': this.token
             },
-            body: JSON.stringify({ chat_name: newName })
+            body: JSON.stringify({ chat_name: stringName })
         });
 
         if (!response.ok) {
@@ -138,12 +140,15 @@ export class ChatRenameHandler {
             throw new Error('Character not found');
         }
 
+        const stringOldName = String(oldName);
+        const stringNewName = String(newName).trim();
+
         // Use SillyTavern's built-in rename API
         const body = {
             is_group: false,
             avatar_url: character.avatar,
-            original_file: `${oldName}.jsonl`,
-            renamed_file: `${newName.trim()}.jsonl`,
+            original_file: `${stringOldName}.jsonl`,
+            renamed_file: `${stringNewName}.jsonl`,
         };
 
         console.log('[ChatRenameHandler] Sending rename request:', body);
@@ -158,7 +163,6 @@ export class ChatRenameHandler {
         });
 
         if (!response.ok) {
-            // Try to get error details from response
             let errorDetails = '';
             try {
                 const errorData = await response.json();
@@ -167,8 +171,6 @@ export class ChatRenameHandler {
                 errorDetails = await response.text();
             }
             console.error('[ChatRenameHandler] Rename API error:', response.status, errorDetails);
-            
-            // Provide user-friendly error message
             const errorString = String(errorDetails);
             
             if (errorString === 'true' || errorString.toLowerCase().includes('already exists')) {

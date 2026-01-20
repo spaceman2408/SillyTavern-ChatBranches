@@ -88,7 +88,8 @@ export class ChatTreeView {
             return;
         }
 
-        this.currentChatFile = this.characters[this.this_chid]?.chat;
+        // Ensure currentChatFile is always a string
+        this.currentChatFile = String(this.characters[this.this_chid]?.chat || '');
         if (!this.currentChatFile) {
             toastr.info('No active chat found.');
             return;
@@ -206,11 +207,11 @@ export class ChatTreeView {
             if (node.name === this.currentChatFile) {
                 this.currentNode = node;
                 console.log('[Chat Branches] Found current node by name match:', this.currentChatFile);
-                break;
+                return;
             }
         }
 
-        // If still not found, try fuzzy matching for edge cases
+        // If still not found, try case-insensitive match
         if (!this.currentNode) {
             const currentFileLower = this.currentChatFile.toLowerCase().trim();
             
@@ -221,13 +222,23 @@ export class ChatTreeView {
                 if (nodeNameLower === currentFileLower) {
                     this.currentNode = node;
                     console.log('[Chat Branches] Found current node with case-insensitive match:', this.currentChatFile);
-                    break;
+                    return;
                 }
+            }
+        }
+
+        // Final fallback: Try partial match only if we still haven't found anything
+        // This is less reliable and should rarely be needed
+        if (!this.currentNode) {
+            const currentFileLower = this.currentChatFile.toLowerCase().trim();
+            
+            for (const [uuid, node] of this.nodeMap) {
+                const nodeNameLower = node.name.toLowerCase().trim();
                 
                 // Try partial match (for cases where file extensions might differ)
                 if (nodeNameLower.includes(currentFileLower) || currentFileLower.includes(nodeNameLower)) {
                     this.currentNode = node;
-                    console.log('[Chat Branches] Found current node with partial match:', this.currentChatFile, '->', node.name);
+                    console.warn('[Chat Branches] Found current node with PARTIAL match:', this.currentChatFile, '->', node.name);
                     break;
                 }
             }
@@ -308,7 +319,11 @@ export class ChatTreeView {
     }
 
     renderNodeRecursive(node, level) {
-        const isActive = node.name === this.currentChatFile;
+        // Use UUID for active detection, but also check name as fallback
+        const isActiveByUUID = this.currentChatUUID && node.id === this.currentChatUUID;
+        const isActiveByName = node.name === this.currentChatFile;
+        const isActive = isActiveByUUID || isActiveByName;
+        
         const isExpanded = this.expandedUUIDs.has(node.id);
         const hasChildren = node.children && node.children.length > 0;
         const isRenaming = this.isRenaming && this.renameNode?.id === node.id;
@@ -609,8 +624,7 @@ export class ChatTreeView {
         
         try {
             await this.openCharacterChat(chatName);
-            this.currentChatFile = chatName;
-            // Reload tree from plugin for updated perspective
+            this.currentChatFile = String(chatName);
             await this.loadAndBuildTree();
             
             toastr.success('Chat switched successfully');
@@ -705,32 +719,40 @@ export class ChatTreeView {
             // Perform rename
             await this.renameHandler.performRename(uuid, node.name, newName);
             
-            const wasActiveChat = node.name === this.currentChatFile;
+            // Use UUID for active chat detection instead of name (more reliable)
+            const wasActiveChat = this.currentChatUUID === uuid;
+            
+            // Update local state immediately
+            node.name = newName;
+            node.data.chat_name = newName;
             
             // Update current chat file name if we renamed the active chat
             if (wasActiveChat) {
-                this.currentChatFile = newName;
+                this.currentChatFile = String(newName);
                 // Update character's chat reference
                 if (this.characters[this.this_chid]) {
                     this.characters[this.this_chid].chat = newName;
                 }
             }
             
-            // Update local state
-            node.name = newName;
-            node.data.chat_name = newName;
-            
             // Clear rename state before reloading
             this.isRenaming = false;
             this.renameNode = null;
             
-            // Refresh tree
-            await this.loadAndBuildTree();
-            
-            // If we renamed the active chat, reload it to stay on it
+            // If we renamed the active chat, reload it to stay on it BEFORE rebuilding tree
+            // This ensures SillyTavern's state is updated before we try to find the current node
             if (wasActiveChat) {
                 await this.openCharacterChat(newName);
+                // Update dependencies with fresh data after reload
+                this.currentChatFile = String(this.characters[this.this_chid]?.chat || '');
+                this.currentChatUUID = this.characters[this.this_chid]?.chat_metadata?.uuid || null;
+                
+                // Add a small delay to ensure plugin has updated the tree
+                await new Promise(resolve => setTimeout(resolve, 100));
             }
+            
+            // Refresh tree after everything is updated
+            await this.loadAndBuildTree();
             
             toastr.success('Chat renamed successfully');
         } catch (error) {

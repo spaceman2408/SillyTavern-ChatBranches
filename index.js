@@ -110,6 +110,10 @@ async function registerBranchWithPlugin(branchData) {
     if (!extension_settings[extensionName].enabled || !pluginRunning) return;
 
     try {
+        if (branchData.chat_name !== undefined) {
+            branchData.chat_name = String(branchData.chat_name);
+        }
+
         const response = await fetch(`${PLUGIN_BASE_URL}/branch`, {
             method: 'POST',
             headers: {
@@ -147,6 +151,10 @@ async function updateBranchInPlugin(uuid, updates) {
     }
 
     try {
+        if (updates.chat_name !== undefined) {
+            updates.chat_name = String(updates.chat_name);
+        }
+
         console.log('[Chat Branches] Sending update to stored data:', { uuid, updates });
         const response = await fetch(`${PLUGIN_BASE_URL}/branch/${uuid}`, {
             method: 'PATCH',
@@ -360,7 +368,7 @@ async function ensureChatUUID() {
     // Register with plugin if this is a new chat or newly tracked
     if (isNewChat) {
         const characterId = characters[this_chid]?.avatar || null;
-        const chatName = characters[this_chid]?.chat || 'Unknown';
+        const chatName = String(characters[this_chid]?.chat || 'Unknown');
 
         await registerBranchWithPlugin({
             uuid: chat_metadata.uuid,
@@ -573,7 +581,7 @@ async function createBranchWithUUID(mesId) {
         parent_uuid: currentUUID,
         root_uuid: currentRootUUID || currentUUID,
         character_id: characterId,
-        chat_name: name,
+        chat_name: String(name),
         branch_point: mesId,
         created_at: Date.now()
     });
