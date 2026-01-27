@@ -98,11 +98,12 @@ export class ChatRenameHandler {
     /**
      * Update branch in plugin storage
      * @param {string} uuid - Branch UUID
-     * @param {string} newName - New chat name
+     * @param {string} newName - New chat name (without .jsonl extension)
      * @returns {Promise<void>}
      */
     async updateBranchInPlugin(uuid, newName) {
-        const stringName = String(newName);
+        // Ensure newName doesn't have .jsonl extension (plugin stores clean names)
+        const cleanName = String(newName).replace(/\.jsonl$/i, '');
 
         const response = await fetch(`${this.pluginBaseUrl}/branch/${uuid}`, {
             method: 'PATCH',
@@ -110,7 +111,7 @@ export class ChatRenameHandler {
                 'Content-Type': 'application/json',
                 'X-CSRF-Token': this.token
             },
-            body: JSON.stringify({ chat_name: stringName })
+            body: JSON.stringify({ chat_name: cleanName })
         });
 
         if (!response.ok) {
@@ -128,9 +129,10 @@ export class ChatRenameHandler {
      * Uses the built-in /api/chats/rename endpoint
      * @param {string} oldName - Current chat name (without .jsonl extension)
      * @param {string} newName - New chat name (without .jsonl extension)
+     * @param {string} uuid - Chat UUID to preserve in metadata
      * @returns {Promise<string|null>} Returns sanitized name if provided by server, null otherwise
      */
-    async renameChatFile(oldName, newName) {
+    async renameChatFile(oldName, newName, uuid) {
         if (!this.characters || this.this_chid === undefined || this.this_chid === null) {
             throw new Error('Character not found');
         }
@@ -190,8 +192,81 @@ export class ChatRenameHandler {
 
         console.log('[ChatRenameHandler] Rename successful:', data);
 
+        // After renaming, restore the UUID in the chat metadata
+        await this.restoreUUIDMetadata(character.avatar, stringNewName, uuid);
+
         // Return sanitized filename if provided by server
         return data.sanitizedFileName || null;
+    }
+
+    /**
+     * Restore UUID metadata after rename operation
+     * SillyTavern's rename endpoint may strip custom metadata, so we restore it
+     * @param {string} characterAvatar - Character avatar filename
+     * @param {string} chatName - Chat name (without .jsonl extension)
+     * @param {string} uuid - UUID to restore
+     * @returns {Promise<void>}
+     */
+    async restoreUUIDMetadata(characterAvatar, chatName, uuid) {
+        try {
+            console.log('[ChatRenameHandler] Restoring UUID metadata:', uuid, 'to chat:', chatName);
+            
+            // Ensure chatName doesn't have .jsonl extension
+            const cleanChatName = chatName.replace(/\.jsonl$/i, '');
+            
+            // Get the current chat metadata
+            // Note: SillyTavern's /api/chats/get expects file_name WITHOUT .jsonl extension
+            const getResponse = await fetch('/api/chats/get', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-Token': this.token
+                },
+                body: JSON.stringify({
+                    ch_name: characterAvatar,
+                    file_name: cleanChatName, // Send without .jsonl
+                    avatar_url: characterAvatar
+                })
+            });
+
+            if (!getResponse.ok) {
+                console.warn('[ChatRenameHandler] Failed to get chat for UUID restoration:', getResponse.status);
+                return;
+            }
+
+            const chatData = await getResponse.json();
+            
+            // Ensure chat_metadata exists and has the UUID
+            if (!chatData.chat_metadata) {
+                chatData.chat_metadata = {};
+            }
+            chatData.chat_metadata.uuid = uuid;
+
+            // Save the updated metadata
+            // Note: SillyTavern's /api/chats/save also expects file_name WITHOUT .jsonl extension
+            const saveResponse = await fetch('/api/chats/save', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-Token': this.token
+                },
+                body: JSON.stringify({
+                    ch_name: characterAvatar,
+                    file_name: cleanChatName, // Send without .jsonl
+                    chat: chatData.chat || [],
+                    avatar_url: characterAvatar
+                })
+            });
+
+            if (saveResponse.ok) {
+                console.log('[ChatRenameHandler] UUID metadata restored successfully');
+            } else {
+                console.warn('[ChatRenameHandler] Failed to save UUID metadata:', saveResponse.status);
+            }
+        } catch (error) {
+            console.error('[ChatRenameHandler] Error restoring UUID metadata:', error);
+            // Don't throw - this is a non-critical operation
+        }
     }
 
     /**
@@ -206,8 +281,8 @@ export class ChatRenameHandler {
             // Step 1: Update plugin storage
             await this.updateBranchInPlugin(uuid, newName);
 
-            // Step 2: Rename the actual chat file
-            await this.renameChatFile(oldName, newName);
+            // Step 2: Rename the actual chat file and restore UUID metadata
+            await this.renameChatFile(oldName, newName, uuid);
 
             // Success
             return;

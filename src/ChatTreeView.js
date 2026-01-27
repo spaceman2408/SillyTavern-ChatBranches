@@ -21,6 +21,7 @@ export class ChatTreeView {
         this.extensionName = dependencies.extensionName;
         this.pluginBaseUrl = dependencies.pluginBaseUrl;
         this.selected_group = dependencies.selected_group;
+        this.chat_metadata = dependencies.chat_metadata;  // Add chat_metadata reference
 
         // State
         this.treeRoots = [];
@@ -79,6 +80,9 @@ export class ChatTreeView {
         if (dependencies.selected_group !== undefined) {
             this.selected_group = dependencies.selected_group;
         }
+        if (dependencies.chat_metadata !== undefined) {
+            this.chat_metadata = dependencies.chat_metadata;
+        }
         this.renameHandler.updateDependencies(dependencies);
     }
 
@@ -112,8 +116,8 @@ export class ChatTreeView {
             return;
         }
 
-        // Get current chat UUID from metadata
-        this.currentChatUUID = this.characters[this.this_chid]?.chat_metadata?.uuid || null;
+        // Get current chat UUID from metadata (use global chat_metadata, not character.chat_metadata)
+        this.currentChatUUID = this.chat_metadata?.uuid || null;
 
         await this.renderModalSkeleton();
         await this.loadAndBuildTree();
@@ -789,39 +793,46 @@ export class ChatTreeView {
         $input.prop('disabled', true);
 
         try {
-            // Perform rename
-            await this.renameHandler.performRename(uuid, node.name, newName);
+            const oldName = node.name;
             
             // Use UUID for active chat detection instead of name (more reliable)
             const wasActiveChat = this.currentChatUUID === uuid;
             
-            // Update local state immediately
-            node.name = newName;
-            node.data.chat_name = newName;
-            
-            // Update current chat file name if we renamed the active chat
-            if (wasActiveChat) {
-                this.currentChatFile = String(newName);
-                // Update character's chat reference
-                if (this.characters[this.this_chid]) {
-                    this.characters[this.this_chid].chat = newName;
-                }
-            }
+            // Perform rename (this updates both plugin and file system)
+            await this.renameHandler.performRename(uuid, oldName, newName);
             
             // Clear rename state before reloading
             this.isRenaming = false;
             this.renameNode = null;
             
-            // If we renamed the active chat, reload it to stay on it BEFORE rebuilding tree
-            // This ensures SillyTavern's state is updated before we try to find the current node
+            // If we renamed the active chat, we need to update state and reload
             if (wasActiveChat) {
-                await this.openCharacterChat(newName);
-                // Update dependencies with fresh data after reload
-                this.currentChatFile = String(this.characters[this.this_chid]?.chat || '');
-                this.currentChatUUID = this.characters[this.this_chid]?.chat_metadata?.uuid || null;
+                console.log('[Chat Branches] Renamed active chat from:', oldName, 'to:', newName);
                 
-                // Add a small delay to ensure plugin has updated the tree
-                await new Promise(resolve => setTimeout(resolve, 100));
+                console.log('[Chat Branches] Calling openCharacterChat with:', newName);
+                
+                // Reload the chat with the new name to sync SillyTavern's state
+                try {
+                    await this.openCharacterChat(newName);
+                    console.log('[Chat Branches] openCharacterChat completed');
+                } catch (error) {
+                    console.error('[Chat Branches] openCharacterChat failed:', error);
+                }
+                
+                // CRITICAL: Wait for SillyTavern to fully process the chat change
+                // openCharacterChat calls getChat() which loads chat_metadata from the server
+                await new Promise(resolve => setTimeout(resolve, 300));
+                
+                // NOW update our state from the reloaded data
+                // Use the global chat_metadata which was updated by getChat()
+                this.currentChatFile = String(this.characters[this.this_chid]?.chat || newName);
+                this.currentChatUUID = this.chat_metadata?.uuid || uuid;
+                
+                console.log('[Chat Branches] Final state - currentChatFile:', this.currentChatFile, 'UUID:', this.currentChatUUID);
+                console.log('[Chat Branches] Global chat_metadata.uuid:', this.chat_metadata?.uuid);
+                
+                // Add another delay to ensure plugin has updated the tree
+                await new Promise(resolve => setTimeout(resolve, 200));
             }
             
             // Refresh tree after everything is updated
@@ -833,11 +844,11 @@ export class ChatTreeView {
             toastr.error(error.message || 'Failed to rename chat', 'Rename Failed');
             $input.prop('disabled', false);
             $input.focus();
+            // Reset rename state on error
+            this.isRenaming = false;
+            this.renameNode = null;
             return;
         }
-
-        this.isRenaming = false;
-        this.renameNode = null;
     }
 
     cancelRename() {

@@ -663,7 +663,10 @@ const chatTreeView = new ChatTreeView({
     openCharacterChat,
     extensionName,
     pluginBaseUrl: PLUGIN_BASE_URL,
-    selected_group
+    selected_group,
+    chat,
+    saveChat,
+    chat_metadata  // Add chat_metadata as a dependency
 });
 
 // Create migrator instance with dependencies - disabled for now
@@ -769,7 +772,8 @@ function hookMessageTreeViewButton() {
             this_chid,
             token,
             pluginBaseUrl: PLUGIN_BASE_URL,
-            selected_group
+            selected_group,
+            chat_metadata  // Pass the global chat_metadata
         });
         
         chatTreeView.show();
@@ -792,6 +796,17 @@ function hookOptionsMenu() {
 eventSource.on(event_types.CHAT_CHANGED, function() {
     if (extension_settings[extensionName].enabled && pluginRunning) {
         addMessageTreeViewButton();
+        
+        // Update ChatTreeView dependencies to keep current chat UUID synced
+        // This is important after renames to ensure the tree view has fresh data
+        chatTreeView.updateDependencies({
+            characters,
+            this_chid,
+            token,
+            pluginBaseUrl: PLUGIN_BASE_URL,
+            selected_group,
+            chat_metadata  // Pass the global chat_metadata
+        });
     }
 });
 eventSource.on(event_types.MESSAGE_RECEIVED, function() {
@@ -844,7 +859,8 @@ jQuery(async function() {
             this_chid,
             token,
             pluginBaseUrl: PLUGIN_BASE_URL,
-            selected_group
+            selected_group,
+            chat_metadata  // Pass the global chat_metadata
         });
         
         chatTreeView.show();
