@@ -5,7 +5,7 @@
     "js": "index.js",
     "css": "src/css/styles.css",
     "author": "spaceman2408",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "homePage": "https://github.com/spaceman2408/SillyTavern-ChatBranches",
     "auto_update": true
 }
