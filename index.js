@@ -19,7 +19,6 @@ import { uuidv4 } from '../../../utils.js';
 import { humanizedDateTime } from '../../../RossAscends-mods.js';
 import { POPUP_TYPE, Popup } from '../../../popup.js';
 import { ChatTreeView } from './src/ChatTreeView.js';
-import { ChatMigrator } from './src/ChatMigrator.js';
 import { StorageRebuilder } from './src/StorageRebuilder.js';
 
 /**
@@ -676,19 +675,6 @@ const chatTreeView = new ChatTreeView({
     chat_metadata  // Add chat_metadata as a dependency
 });
 
-// Create migrator instance with dependencies - disabled for now
-/*const chatMigrator = new ChatMigrator({
-    characters,
-    this_chid,
-    token,
-    extensionName,
-    uuidv4,
-    registerBranchWithPlugin,
-    pluginBaseUrl: PLUGIN_BASE_URL,
-    selected_group
-});
-*/
-
 // Create storage rebuilder instance with dependencies
 const storageRebuilder = new StorageRebuilder({
     characters,
@@ -872,23 +858,6 @@ jQuery(async function() {
         
         chatTreeView.show();
     });
-
-    /*
-    // Bind migration button click
-    $(document).on('click', '#chat_branches_migrate', function() {
-        // Update dependencies before migrating (this_chid may have changed)
-        chatMigrator.updateDependencies({
-            characters,
-            this_chid,
-            token,
-            uuidv4,
-            registerBranchWithPlugin,
-            selected_group
-        });
-
-        chatMigrator.showMigrationDialog();
-    });
-    */
 
     // Bind rebuild storage button click
     $(document).on('click', '#chat_branches_rebuild', function() {
