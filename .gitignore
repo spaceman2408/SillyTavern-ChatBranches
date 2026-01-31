@@ -34,3 +34,6 @@ OLDFILES_DONOTUSE/
 global.d.ts
 st_mcp/
 plugin/
+
+# Website (documentation site)
+website/
