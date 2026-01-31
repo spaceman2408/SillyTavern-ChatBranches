@@ -378,7 +378,27 @@ export class MessageViewerPopup {
             if (this.deps.onNavigate) this.deps.onNavigate(this.state.chatName, id);
             this.hide();
 
-            // 2. The "Hunt" Loop
+            // 2. Use the built-in /chat-jump slash command to scroll to the message
+            // Import and use the executeSlashCommandsWithOptions function from slash-commands.js
+            const { executeSlashCommandsWithOptions } = await import('../../../../slash-commands.js');
+            await executeSlashCommandsWithOptions(`/chat-jump ${id}`, {
+                handleParserErrors: true,
+                handleExecutionErrors: false,
+            });
+        } catch (e) {
+            console.error('[Chat Branches][Message Viewer] Navigation error:', e);
+        }
+    }
+
+    /**
+     * Fallback navigation method when slash commands are not available.
+     * Uses the original "hunt" loop approach.
+     * @param {number} id - The message ID to navigate to
+     */
+    async _fallbackNavigateToMessage(id) {
+        const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+        try {
             for (let attempt = 0; attempt < 30; attempt++) {
                 const $msg = $(`.mes[mesid="${id}"]`);
 
@@ -427,9 +447,8 @@ export class MessageViewerPopup {
             if (typeof toastr !== 'undefined') {
                 toastr.warning('Message not found (it may be deleted or unreachable).');
             }
-
         } catch (e) {
-            console.error('[Chat Branches][Message Viewer] Navigation error:', e);
+            console.error('[Chat Branches][Message Viewer] Fallback navigation error:', e);
         }
     }
 
