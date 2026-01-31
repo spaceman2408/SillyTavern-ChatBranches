@@ -70,16 +70,16 @@ export class StorageRebuilder {
                     '<i class="fa-solid fa-triangle-exclamation" style="font-size: 48px; color: #f59e0b; margin-bottom: 16px;"></i>' +
                     '<p><strong>Storage already exists for this character.</strong></p>' +
                     '<p>This will merge/add branches from chat files to the existing storage.</p>' +
-                    '<p>Only chats with UUIDs will be processed.</p>' +
+                    '<p>Only chats with Unique IDs will be processed.</p>' +
                     '<p style="font-size: 0.9em; opacity: 0.7; margin-top: 8px;">Use this if storage is corrupted or missing branches.</p>' +
                     '</div>';
             } else {
                 dialogContent = '<div style="text-align: center;">' +
                     '<i class="fa-solid fa-circle-info" style="font-size: 48px; color: #3b82f6; margin-bottom: 16px;"></i>' +
                     '<p><strong>No storage found for this character.</strong></p>' +
-                    '<p>This will rebuild storage from chat files with UUIDs.</p>' +
-                    '<p>Only chats with UUIDs will be processed.</p>' +
-                    '<p style="font-size: 0.9em; opacity: 0.7; margin-top: 8px;">Chats without UUIDs will be skipped.</p>' +
+                    '<p>This will rebuild storage from chat files with Unique IDs.</p>' +
+                    '<p>Only chats with Unique IDs will be processed.</p>' +
+                    '<p style="font-size: 0.9em; opacity: 0.7; margin-top: 8px;">Chats without Unique IDs will be skipped.</p>' +
                     '</div>';
             }
 
