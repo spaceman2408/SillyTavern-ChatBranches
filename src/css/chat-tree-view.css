@@ -219,9 +219,19 @@
     z-index: var(--z-toggle);
     cursor: pointer;
     transition: transform 0.2s;
+    /* Ensure touch events work properly on mobile */
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
 }
 
 .expand-toggle:hover { transform: translateX(-50%) scale(1.15); }
+
+/* Mobile: Ensure expand toggle is always tappable */
+@media (max-width: 768px) {
+    .expand-toggle {
+        pointer-events: auto !important;
+    }
+}
 
 /* ==========================================================================
    CONTEXT MENU

@@ -463,6 +463,7 @@ export class ChatTreeView {
 
         // Use event delegation and remove old handlers first
         $('#chat_tree_content').off('click.expandToggle', '.expand-toggle')
+                            .off('touchend.expandToggleTouch', '.expand-toggle')
                             .off('dblclick.treeNodeDblclick', '.tree-node')
                             .off('contextmenu.chatTree')
                             .off('click.renameIcon', '.rename-icon')
@@ -545,12 +546,29 @@ export class ChatTreeView {
 
         // Long-press detection for mobile context menu
         let longPressTimer = null;
+        let touchStartTime = 0;
+        let touchStartX = 0;
+        let touchStartY = 0;
+        let lastTapTime = 0;
+        let lastTapTarget = null;
         const LONG_PRESS_DURATION = 500; // ms
+        const TAP_THRESHOLD = 10; // pixels - max movement to be considered a tap
+        const TAP_DURATION = 300; // ms - max duration to be considered a tap
+        const DOUBLE_TAP_DELAY = 300; // ms - max time between taps for double-tap
 
         $('#chat_tree_content').on('touchstart.chatTree', '.tree-node', function(e) {
+            // Don't trigger long-press if touching the expand/collapse toggle
+            if ($(e.target).closest('.expand-toggle').length) {
+                return;
+            }
+            
             if (e.touches.length === 1) {
                 const $node = $(this);
                 const touch = e.originalEvent.touches[0];
+                
+                touchStartTime = Date.now();
+                touchStartX = touch.clientX;
+                touchStartY = touch.clientY;
                 
                 // Start long-press timer
                 longPressTimer = setTimeout(() => {                 
@@ -586,8 +604,66 @@ export class ChatTreeView {
             }
         });
 
-        // Cancel long-press on touch move or end (for nodes)
-        $('#chat_tree_content').on('touchmove.chatTree touchend.chatTree touchcancel.chatTree', '.tree-node', function() {
+        // Handle touch end for nodes - detect double-tap vs long-press
+        $('#chat_tree_content').on('touchend.chatTree', '.tree-node', async function(e) {
+            // Don't process if touching the expand/collapse toggle
+            if ($(e.target).closest('.expand-toggle').length) {
+                return;
+            }
+            
+            const touchDuration = Date.now() - touchStartTime;
+            const touch = e.originalEvent.changedTouches[0];
+            const touchDistance = Math.sqrt(
+                Math.pow(touch.clientX - touchStartX, 2) + 
+                Math.pow(touch.clientY - touchStartY, 2)
+            );
+            
+            // Clear long-press timer
+            if (longPressTimer) {
+                clearTimeout(longPressTimer);
+                longPressTimer = null;
+            }
+            
+            // Only process valid taps (short duration, minimal movement)
+            if (touchDuration >= TAP_DURATION || touchDistance >= TAP_THRESHOLD) {
+                return;
+            }
+            
+            e.preventDefault();
+            e.stopPropagation();
+            
+            const currentTime = Date.now();
+            const timeSinceLastTap = currentTime - lastTapTime;
+            const $currentTarget = $(this);
+            
+            // Check if this is a double-tap (same target, within delay)
+            if (timeSinceLastTap < DOUBLE_TAP_DELAY && lastTapTarget && 
+                $currentTarget.data('uuid') === $(lastTapTarget).data('uuid')) {
+                // Double-tap detected - navigate to chat
+                lastTapTime = 0;
+                lastTapTarget = null;
+                
+                // Prevent multiple simultaneous swaps
+                if (self.isSwappingChat) {
+                    console.log('[Chat Branches] Chat swap already in progress, ignoring double-tap');
+                    return;
+                }
+                
+                const name = $currentTarget.data('name');
+                
+                if (name === self.currentChatFile) return;
+
+                $currentTarget.addClass('loading-node');
+                await self.swapChat(name);
+            } else {
+                // First tap - store info and wait for potential second tap
+                lastTapTime = currentTime;
+                lastTapTarget = this;
+            }
+        });
+
+        // Cancel long-press on touch move or cancel (for nodes)
+        $('#chat_tree_content').on('touchmove.chatTree touchcancel.chatTree', '.tree-node', function() {
             if (longPressTimer) {
                 clearTimeout(longPressTimer);
                 longPressTimer = null;
@@ -600,6 +676,37 @@ export class ChatTreeView {
                 clearTimeout(longPressTimer);
                 longPressTimer = null;
             }
+        });
+
+        // Touch support for expand/collapse toggle buttons (+/-)
+        // Use touchend for immediate response on mobile
+        $('#chat_tree_content').on('touchend.expandToggleTouch', '.expand-toggle', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            const uuid = $(this).closest('.tree-node').data('uuid');
+            
+            if (self.expandedUUIDs.has(uuid)) {
+                self.expandedUUIDs.delete(uuid);
+            } else {
+                self.expandedUUIDs.add(uuid);
+            }
+            
+            self.render();
+        });
+
+        // Also keep click handler for desktop
+        $('#chat_tree_content').on('click.expandToggle', '.expand-toggle', function(e) {
+            e.stopPropagation();
+            const uuid = $(this).closest('.tree-node').data('uuid');
+            
+            if (self.expandedUUIDs.has(uuid)) {
+                self.expandedUUIDs.delete(uuid);
+            } else {
+                self.expandedUUIDs.add(uuid);
+            }
+            
+            self.render();
         });
 
         // Clean up long-press timer on hide
@@ -1038,7 +1145,7 @@ export class ChatTreeView {
         $('style#chat-tree-styles').remove();
         $(window).off('resize.chatTree');
         $(document).off('mousemove.chatTree mouseup.chatTree mouseleave.chatTree');
-        $('#chat_tree_content').off('mousedown.chatTree touchstart.chatTree touchmove.chatTree touchend.chatTree touchcancel.chatTree touchstart.chatTreeBlank touchmove.chatTreeBlank touchend.chatTreeBlank touchcancel.chatTreeBlank');
+        $('#chat_tree_content').off('mousedown.chatTree touchstart.chatTree touchmove.chatTree touchend.chatTree touchcancel.chatTree touchstart.chatTreeBlank touchmove.chatTreeBlank touchend.chatTreeBlank touchcancel.chatTreeBlank touchend.expandToggleTouch');
         
         // Clean up rename events
         $('#chat_tree_content').off('click.renameIcon');
