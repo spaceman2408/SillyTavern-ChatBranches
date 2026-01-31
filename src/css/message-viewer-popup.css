@@ -125,6 +125,14 @@
     border-color: var(--msg-accent);
 }
 
+.message-viewer-item.user-message:hover {
+    border-color: var(--msg-user);
+}
+
+.message-viewer-item.assistant-message:hover {
+    border-color: var(--msg-ai);
+}
+
 /* Variant Borders */
 .message-viewer-item.user-message { border-left-color: var(--msg-user); }
 .message-viewer-item.assistant-message { border-left-color: var(--msg-ai); }
