@@ -793,12 +793,19 @@ export class ChatTreeView {
             toastr.success('Chat renamed successfully');
         } catch (error) {
             console.error('[Chat Branches] Rename failed:', error);
+            // Keep the rename input open on error so user can correct the name
             toastr.error(error.message || 'Failed to rename chat', 'Rename Failed');
             $input.prop('disabled', false);
             $input.focus();
-            // Reset rename state on error
-            this.isRenaming = false;
-            this.renameNode = null;
+            // Don't reset rename state on validation errors - let user try again
+            // Only reset if it's a non-validation error (like server down)
+            if (error.message?.includes('Plugin request failed') ||
+                error.message?.includes('Network error') ||
+                error.message?.includes('Failed to fetch')) {
+                this.isRenaming = false;
+                this.renameNode = null;
+                this.render();
+            }
             return;
         }
     }

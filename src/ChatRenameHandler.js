@@ -14,6 +14,7 @@ export class ChatRenameHandler {
         this.INVALID_CHARS = /[<>:"/\\|?*]/g;
         this.RESERVED_NAMES = /^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])$/i;
         this.MAX_FILENAME_LENGTH = 255;
+        this.INVALID_START_CHARS = /^[.\s]+/;
     }
 
     /**
@@ -50,6 +51,14 @@ export class ChatRenameHandler {
         // Check reserved names
         if (this.RESERVED_NAMES.test(trimmedName)) {
             return { valid: false, error: 'Name is reserved by the system' };
+        }
+
+        // Check for invalid starting characters (., spaces, etc.)
+        if (this.INVALID_START_CHARS.test(trimmedName)) {
+            return {
+                valid: false,
+                error: 'Name cannot start with a dot, space, or other special characters'
+            };
         }
 
         // Check for duplicates in tree
@@ -115,7 +124,16 @@ export class ChatRenameHandler {
         });
 
         if (!response.ok) {
-            throw new Error(`Plugin request failed: ${response.status}`);
+            let errorMessage = `Plugin request failed: ${response.status}`;
+            try {
+                const errorData = await response.json();
+                if (errorData.error) {
+                    errorMessage = errorData.error;
+                }
+            } catch (e) {
+                // Use default error message
+            }
+            throw new Error(errorMessage);
         }
 
         const result = await response.json();
@@ -166,8 +184,9 @@ export class ChatRenameHandler {
 
         if (!response.ok) {
             let errorDetails = '';
+            let errorData = null;
             try {
-                const errorData = await response.json();
+                errorData = await response.json();
                 errorDetails = errorData.error || errorData.message || JSON.stringify(errorData);
             } catch (e) {
                 errorDetails = await response.text();
@@ -175,10 +194,17 @@ export class ChatRenameHandler {
             console.error('[ChatRenameHandler] Rename API error:', response.status, errorDetails);
             const errorString = String(errorDetails);
             
+            // Handle specific error cases with better messages
             if (errorString === 'true' || errorString.toLowerCase().includes('already exists')) {
                 throw new Error('A chat with this name already exists');
             } else if (errorString.toLowerCase().includes('not found')) {
                 throw new Error('Chat file not found');
+            } else if (errorString.toLowerCase().includes('invalid') || errorString.toLowerCase().includes('reserved')) {
+                // Pass through validation errors from server
+                throw new Error(errorString);
+            } else if (response.status === 400) {
+                // Bad request - likely a validation error
+                throw new Error(errorString || 'Invalid chat name. Names cannot start with dots, spaces, or contain special characters.');
             } else {
                 throw new Error(`Rename failed: ${errorString}`);
             }
